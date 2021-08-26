@@ -8,7 +8,6 @@ int trig = D7;
 int echo = D8;
 long durasi, jarak;
 
-float distance;
 String readString;
 const char* host = "script.google.com";
 const int httpsPort = 443;
