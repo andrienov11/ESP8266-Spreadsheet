@@ -1,27 +1,24 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
+#include <DHT.h>
 
-#define WIFI_SSID "**************"
-#define WIFI_PASSWORD "*************"
-
-int trig = D7;
-int echo = D8;
-long durasi, jarak;
+#define WIFI_SSID "***********"
+#define WIFI_PASSWORD "********"
+#define DHTPIN 14
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
 
 String readString;
 const char* host = "script.google.com";
 const int httpsPort = 443;
 WiFiClientSecure client;
 const char* fingerprint = "46 B2 C3 44 9C 59 09 8B 01 B6 F8 BD 4C FB 00 74 91 2F EF F6";
-String GAS_ID = "*******************************************************************";  // Replace by your GAS service id
+String GAS_ID = "************************************";  // Replace by your GAS service id
 
 
 void setup() {
   Serial.begin(9600);
-
-  pinMode(trig, OUTPUT);
-  pinMode(echo, INPUT);
-
+  dht.begin();
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("connecting");
@@ -37,23 +34,24 @@ void setup() {
 
 void loop() {
 
-  digitalWrite(trig, LOW);
-  delayMicroseconds(8);
-  digitalWrite(trig, HIGH);
-  delayMicroseconds(8);
-  digitalWrite(trig, LOW);
-  delayMicroseconds(8);
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  float f = dht.readTemperature(true);
 
-  durasi = pulseIn(echo, HIGH); 
-  jarak = (durasi / 2) / 29.1;  
-  Serial.println(jarak);       
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
 
-  sendData(jarak);
+  float hif = dht.computeHeatIndex(f, h);
+  float hic = dht.computeHeatIndex(t, h, false);
+
+  sendData(t, f);
   delay(3000);
 }
 
 
-void sendData(float a)
+void sendData(float a, float b)
 {
   client.setInsecure();
   Serial.print("connecting to ");
@@ -71,7 +69,8 @@ void sendData(float a)
   }
 
   String string_a      =  String(a, DEC);
-  String url = "/macros/s/" + GAS_ID + "/exec?Data=" + string_a;
+  String string_b      =  String(b, DEC);
+  String url = "/macros/s/" + GAS_ID + "/exec?tempData=" + string_a + "&humData=" + string_b;
 
   Serial.print("requesting URL: ");
   Serial.println(url);
